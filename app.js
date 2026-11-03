@@ -1306,12 +1306,25 @@ function updateSummary() {
         }
     });
 
-    // Net Balance formula: Income - Expense (obligations are already in totalExpense as actual transactions)
-    const netBalance = totalIncome - totalExpense;
+    // Monthly obligation allocation is a projection, not an expense transaction.
+    // It becomes active on the second day, including when the app was closed then.
+    const monthlyObligations = now.getDate() >= 2
+        ? studioObligations.reduce((sum, ob) => sum + (Number(ob.amount) || 0), 0)
+        : 0;
+    const monthTransactions = transactionsList.filter(tx => tx.date >= startOfMonth && tx.date <= endOfMonth);
+    const monthIncome = monthTransactions.reduce((sum, tx) => sum + (tx.type === "income" ? Number(tx.amount) || 0 : 0), 0);
+    const extraExpense = monthTransactions.reduce((sum, tx) => sum + (
+        tx.type === "expense" && !tx.isMandatory && tx.category !== "სავალდებულო ხარჯი"
+            ? Number(tx.amount) || 0 : 0
+    ), 0);
+    const remainingObligations = Math.max(0, monthlyObligations - monthIncome);
+    const displayedExpense = remainingObligations > 0 ? remainingObligations : -extraExpense;
+    const displayedIncome = monthIncome - monthlyObligations;
+    const netBalance = Math.max(0, monthIncome - monthlyObligations - extraExpense);
 
     // Format display values
-    document.getElementById("total-expense").textContent = `₾${totalExpense.toFixed(2)}`;
-    document.getElementById("total-income").textContent = `₾${totalIncome.toFixed(2)}`;
+    document.getElementById("total-expense").textContent = `₾${displayedExpense.toFixed(2)}`;
+    document.getElementById("total-income").textContent = `₾${displayedIncome.toFixed(2)}`;
 
     const balanceEl = document.getElementById("net-balance");
     const balanceIconContainer = document.getElementById("balance-icon-container");
