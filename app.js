@@ -1897,7 +1897,7 @@ function renderObligationsDashboard() {
         
         const actionHtml = ob.isPaid 
             ? `<span class="ob-status-badge" style="background: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.3); padding: 6px 12px; font-size: 0.75rem; border-radius: 4px; font-weight: 600;">✅ გადახდილია</span>`
-            : `<div style="display: flex; align-items: center; gap: 8px;">
+            : `<div class="ob-actions" style="display: flex; align-items: center; gap: 8px;">
                    <span class="ob-status-badge" style="background: rgba(239, 68, 68, 0.15); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.3); padding: 5px 8px; font-size: 0.7rem; border-radius: 4px; font-weight: 600;">გადასახდელი</span>
                    <button type="button" class="btn btn-pay-obligation" data-ob-index="${index}" style="background: #ef4444; color: #fff; padding: 6px 14px; font-weight: 600; font-size: 0.78rem; border-radius: 4px; border: none; cursor: pointer; display: flex; align-items: center; gap: 5px; box-shadow: 0 2px 8px rgba(239, 68, 68, 0.3);">
                        <i data-lucide="credit-card" style="width: 14px; height: 14px;"></i> გადახდა
