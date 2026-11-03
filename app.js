@@ -43,7 +43,6 @@ let currentUserId = null;
 let currentUserDisplayName = "User";
 let monthlyBudgetLimit = 1500; // Default monthly budget in GEL
 let transactionsList = [];
-let categoryChartInstance = null;
 let studioObligations = [];
 let studioIncomeSources = [];
 let studioRecurringIncomes = []; // Array of objects { name: string, amount: number }
@@ -1366,19 +1365,11 @@ function updateSummary() {
 
     // Monthly obligation allocation is a projection, not an expense transaction.
     // It becomes active on the second day, including when the app was closed then.
-    const monthlyObligations = now.getDate() >= 2
-        ? studioObligations.reduce((sum, ob) => sum + (Number(ob.amount) || 0), 0)
-        : 0;
-    const monthTransactions = transactionsList.filter(tx => tx.date >= startOfMonth && tx.date <= endOfMonth);
-    const monthIncome = monthTransactions.reduce((sum, tx) => sum + (tx.type === "income" ? Number(tx.amount) || 0 : 0), 0);
-    const extraExpense = monthTransactions.reduce((sum, tx) => sum + (
-        tx.type === "expense" && !tx.isMandatory && tx.category !== "სავალდებულო ხარჯი"
-            ? Number(tx.amount) || 0 : 0
-    ), 0);
-    const remainingObligations = Math.max(0, monthlyObligations - monthIncome);
-    const displayedExpense = remainingObligations > 0 ? remainingObligations : -extraExpense;
-    const displayedIncome = monthIncome - monthlyObligations;
-    const netBalance = Math.max(0, monthIncome - monthlyObligations - extraExpense);
+    const progress = calculateMonthProgress(transactionsList, studioObligations, now);
+    const displayedExpense = progress.remaining > 0 ? progress.remaining : -progress.extraExpense;
+    const displayedIncome = progress.income - progress.target;
+    const netBalance = progress.profit;
+    renderCharts();
 
     // Format display values
     document.getElementById("total-expense").textContent = `₾${displayedExpense.toFixed(2)}`;
@@ -1525,75 +1516,46 @@ function exportTransactionsToCSV() {
 // CHARTS RENDERING (Chart.js)
 // ==========================================================================
 
-function renderCharts() {
-    // 1. Doughnut Chart (Categories of expenses)
-    const expenseCategoriesData = {};
-    categories.expense.forEach(c => expenseCategoriesData[c.value] = 0);
-
-    transactionsList.forEach(tx => {
-        if (tx.type === "expense") {
-            expenseCategoriesData[tx.category] = (expenseCategoriesData[tx.category] || 0) + tx.amount;
-        }
+function calculateMonthProgress(transactions, obligations, now = new Date()) {
+    const target = now.getDate() >= 2
+        ? obligations.reduce((sum, ob) => sum + Math.max(0, Number(ob.amount) || 0), 0) : 0;
+    let income = 0;
+    let extraExpense = 0;
+    transactions.forEach(tx => {
+        const date = new Date(tx.date);
+        if (date.getFullYear() !== now.getFullYear() || date.getMonth() !== now.getMonth()) return;
+        const amount = Math.max(0, Number(tx.amount) || 0);
+        if (tx.type === "income") income += amount;
+        if (tx.type === "expense" && !tx.isMandatory && tx.category !== "სავალდებულო ხარჯი") extraExpense += amount;
     });
+    const covered = Math.min(target, income);
+    return { target, income, extraExpense, covered, remaining: Math.max(0, target - income),
+        percent: target > 0 ? Math.min(100, income / target * 100) : 0,
+        profit: Math.max(0, income - target - extraExpense) };
+}
 
-    const doughnutLabels = Object.keys(expenseCategoriesData);
-    const doughnutValues = Object.values(expenseCategoriesData);
-    const hasExpenses = doughnutValues.some(val => val > 0);
-
-    const ctxCategory = document.getElementById("categoryChart").getContext("2d");
-
-    if (categoryChartInstance) categoryChartInstance.destroy();
-
-    if (!hasExpenses) {
-        categoryChartInstance = new Chart(ctxCategory, {
-            type: 'doughnut',
-            data: {
-                labels: ['ხარჯი არ არის'],
-                datasets: [{
-                    data: [1],
-                    backgroundColor: ['#27272a'],
-                    borderWidth: 0
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: { position: 'bottom', labels: { color: '#a1a1aa' } }
-                }
-            }
-        });
-    } else {
-        categoryChartInstance = new Chart(ctxCategory, {
-            type: 'doughnut',
-            data: {
-                labels: doughnutLabels,
-                datasets: [{
-                    data: doughnutValues,
-                    backgroundColor: [
-                        '#6366f1', // Indigo
-                        '#8b5cf6', // Violet
-                        '#ec4899', // Pink
-                        '#f43f5e', // Rose
-                        '#f59e0b', // Amber
-                        '#06b6d4'  // Cyan
-                    ],
-                    borderColor: '#18181b',
-                    borderWidth: 2
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: { position: 'bottom', labels: { color: '#a1a1aa', font: { family: 'Inter' } } },
-                },
-                cutout: '65%'
-            }
-        });
-    }
-
-    // 2. Trend Chart has been moved to the Analytics page, so we only handle Category chart on Dashboard.
+function renderCharts() {
+    const targetEl = document.getElementById("month-progress-target");
+    if (!targetEl) return;
+    const now = new Date();
+    const progress = calculateMonthProgress(transactionsList, studioObligations, now);
+    const money = value => `₾${value.toLocaleString('ka-GE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    targetEl.textContent = money(progress.target);
+    document.getElementById("month-progress-period").textContent = now.toLocaleDateString('ka-GE', { year: 'numeric', month: 'long' });
+    document.getElementById("month-progress-covered").textContent = money(progress.covered);
+    document.getElementById("month-progress-remaining").textContent = money(progress.remaining);
+    document.getElementById("month-progress-percent").textContent = `${Math.floor(progress.percent)}%`;
+    document.getElementById("month-progress-fill").style.width = `${progress.percent}%`;
+    const track = document.getElementById("month-progress-track");
+    track.setAttribute("aria-valuenow", String(progress.percent));
+    track.setAttribute("aria-valuetext", `${money(progress.covered)} / ${money(progress.target)}`);
+    const status = document.getElementById("month-progress-status");
+    const complete = progress.target > 0 && progress.remaining === 0;
+    status.classList.toggle("complete", complete);
+    status.textContent = now.getDate() < 2 ? "თვის ვალდებულებების დათვლა დაიწყება 2 რიცხვში." :
+        progress.target === 0 ? "ყოველთვიური ხარჯები ჯერ არ არის მითითებული პარამეტრებში." :
+        complete ? `თვის ხარჯები დაფარულია — მოგება ${money(progress.profit)}` :
+        `მოგებაზე გასასვლელად დასაფარია ${money(progress.remaining)}.`;
 }
 
 // ==========================================================================

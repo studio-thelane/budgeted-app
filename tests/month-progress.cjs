@@ -1,0 +1,10 @@
+const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
+const source=fs.readFileSync('app.js','utf8');const a=source.indexOf('function calculateMonthProgress('),b=source.indexOf('\nfunction renderCharts()',a);const ctx={Date,Math};vm.createContext(ctx);vm.runInContext(source.slice(a,b),ctx);
+const date=new Date(2026,10,3);const ob=[{amount:6070}];const tx=(type,amount,extra={})=>({type,amount,date:date.getTime(),...extra});
+let p=ctx.calculateMonthProgress([],ob,date);assert.equal(p.remaining,6070);assert.equal(p.profit,0);
+p=ctx.calculateMonthProgress([tx('income',4000)],ob,date);assert.equal(p.covered,4000);assert.equal(p.remaining,2070);
+p=ctx.calculateMonthProgress([tx('income',7000),tx('expense',200),tx('expense',6070,{isMandatory:true})],ob,date);assert.equal(p.profit,730);assert.equal(p.remaining,0);assert.equal(p.percent,100);
+p=ctx.calculateMonthProgress([tx('income',7000,{date:new Date(2026,9,3).getTime()})],ob,date);assert.equal(p.covered,0);
+p=ctx.calculateMonthProgress([],ob,new Date(2026,10,1));assert.equal(p.target,0);
+p=ctx.calculateMonthProgress([],[],date);assert.equal(p.percent,0);assert.equal(p.remaining,0);
+console.log('Monthly progress checks passed: partial coverage, profit, no mandatory double-count, month isolation, day-one and empty states.');
