@@ -1,6 +1,6 @@
 {
   "hosting": {
-    "site": "budgeted-ganaxlebuli",
+    "site": "budgeted-studio",
     "public": ".",
     "ignore": [
       "firebase.json",
