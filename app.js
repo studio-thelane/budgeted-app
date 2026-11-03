@@ -615,14 +615,27 @@ document.addEventListener("DOMContentLoaded", () => {
             // Save Gemini key to LocalStorage (private to device!)
             localStorage.setItem("gemini_api_key", geminiKey);
 
-            // Save Budget & Obligations & Income Sources & Recurring Incomes to Firestore (shared)
-            await db.collection("settings").doc("studio").set({
+            // Save shared settings and notify collaborators about real changes.
+            const settingsRef = db.collection("settings").doc("studio");
+            const previous = await settingsRef.get();
+            const previousData = previous.exists ? previous.data() : {};
+            studioObligations = studioObligations.map(ob => ({
+                ...ob,
+                id: ob.id || createObligationId()
+            }));
+            await settingsRef.set({
                 monthlyBudget: newBudget,
                 obligations: studioObligations,
                 incomeSources: studioIncomeSources,
                 recurringIncomes: studioRecurringIncomes
             }, { merge: true });
 
+            const changed = [];
+            if (Number(previousData.monthlyBudget) !== newBudget) changed.push("თვიური ბიუჯეტი");
+            if (JSON.stringify(previousData.obligations || []) !== JSON.stringify(studioObligations)) changed.push("სავალდებულო ხარჯები");
+            if (JSON.stringify(previousData.incomeSources || []) !== JSON.stringify(studioIncomeSources)) changed.push("შემოსავლის წყაროები");
+            if (JSON.stringify(previousData.recurringIncomes || []) !== JSON.stringify(studioRecurringIncomes)) changed.push("პარტნიორების შემოსავლები");
+            if (changed.length) await addSettingsActivityNotification(changed);
             // Reset API key reveal state on save
             settingsGeminiKeyInput.disabled = true;
             settingsGeminiKeyInput.type = "password";
@@ -695,7 +708,7 @@ document.addEventListener("DOMContentLoaded", () => {
             return;
         }
 
-        studioObligations.push({ name, amount });
+        studioObligations.push({ id: createObligationId(), name, amount });
         newObName.value = "";
         newObAmount.value = "";
         renderObligationsList();
@@ -1774,19 +1787,21 @@ function renderObligationsDashboard() {
     const obDetails = studioObligations.map(ob => {
         totalObligationsAmount += ob.amount;
         
-        // Only consider paid if it was manually confirmed by a user, OR if marked isPaidManually, not legacy 'სისტემა'
-        const matchingTx = currentMonthExpenses.find(t => 
-            (t.description || "").trim().toLowerCase() === ob.name.trim().toLowerCase() &&
-            t.createdBy !== "სისტემა"
-        );
+        const monthKey = `${currentYear}-${String(currentMonth + 1).padStart(2, "0")}`;
+        const matchingTx = currentMonthExpenses.find(t => t.isMandatory === true && (
+            (ob.id && t.obligationId === ob.id) ||
+            (!ob.id && t.obligationPaymentKey === `${monthKey}_${legacyNameKey}`)
+        ));
 
         const isPaid = !!matchingTx;
-        const paidAmount = isPaid ? ob.amount : 0;
+        const paidAmount = isPaid ? Number(matchingTx.amount) : 0;
         totalPaidObligationsAmount += paidAmount;
         if (!isPaid) unpaidCount++;
 
         return {
+            id: ob.id || null,
             name: ob.name,
+            amount: ob.amount,
             target: ob.amount,
             isPaid: isPaid
         };
@@ -1812,7 +1827,7 @@ function renderObligationsDashboard() {
             ? `<span class="ob-status-badge" style="background: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.3); padding: 6px 12px; font-size: 0.75rem; border-radius: 4px; font-weight: 600;">✅ გადახდილია</span>`
             : `<div style="display: flex; align-items: center; gap: 8px;">
                    <span class="ob-status-badge" style="background: rgba(239, 68, 68, 0.15); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.3); padding: 5px 8px; font-size: 0.7rem; border-radius: 4px; font-weight: 600;">გადასახდელი</span>
-                   <button type="button" class="btn btn-pay-obligation" data-ob-index="${index}" onclick="openPayObligationModalByIndex(${index})" style="background: #ef4444; color: #fff; padding: 6px 14px; font-weight: 600; font-size: 0.78rem; border-radius: 4px; border: none; cursor: pointer; display: flex; align-items: center; gap: 5px; box-shadow: 0 2px 8px rgba(239, 68, 68, 0.3);">
+                   <button type="button" class="btn btn-pay-obligation" data-ob-index="${index}" style="background: #ef4444; color: #fff; padding: 6px 14px; font-weight: 600; font-size: 0.78rem; border-radius: 4px; border: none; cursor: pointer; display: flex; align-items: center; gap: 5px; box-shadow: 0 2px 8px rgba(239, 68, 68, 0.3);">
                        <i data-lucide="credit-card" style="width: 14px; height: 14px;"></i> გადახდა
                    </button>
                </div>`;
@@ -1933,18 +1948,36 @@ function renderObligationsDashboard() {
     });
 }
 
-// Direct payment confirmation using reliable browser native dialog
+function createObligationId() {
+    return (typeof crypto !== "undefined" && crypto.randomUUID)
+        ? crypto.randomUUID()
+        : `ob-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+// Confirm and record one obligation expense per obligation and calendar month.
 window.payObligationDirect = async function(index) {
     if (!window.currentObligationsList || !window.currentObligationsList[index]) return;
     const ob = window.currentObligationsList[index];
+    if (ob.isPaid) return;
 
     const confirmed = window.confirm(`ნამდვილად გსურთ "${ob.name}"-ს (₾${ob.amount.toFixed(2)}) ჩამოჭრა მიმდინარე თვის ბიუჯეტიდან?\nთანხა მომენტალურად შევა გასავლებში.`);
     if (!confirmed) return;
 
     try {
         const now = Date.now();
-        // Record as an official expense transaction
-        await db.collection("transactions").add({
+        const nowDate = new Date(now);
+        const monthKey = `${nowDate.getFullYear()}-${String(nowDate.getMonth() + 1).padStart(2, "0")}`;
+        const obligationId = ob.id || ob.name.trim().toLowerCase().replace(/\s+/g, "-");
+        const paymentKey = `${monthKey}_${obligationId}`;
+        const paymentDocId = (typeof btoa === "function")
+            ? `obligation_${btoa(unescape(encodeURIComponent(paymentKey))).replace(/=+$/g, "")}`
+            : `obligation_${encodeURIComponent(paymentKey).replace(/%/g, "_")}`;
+        const paymentRef = db.collection("transactions").doc(paymentDocId);
+        let created = false;
+        await db.runTransaction(async transaction => {
+            const existing = await transaction.get(paymentRef);
+            if (existing.exists) return;
+            transaction.set(paymentRef, {
             amount: parseFloat(ob.amount),
             type: "expense",
             category: "სავალდებულო ხარჯი",
@@ -1952,8 +1985,17 @@ window.payObligationDirect = async function(index) {
             date: now,
             createdBy: currentUserDisplayName || "სტუმარი",
             createdAt: now,
-            isMandatory: true
+            isMandatory: true,
+            obligationId: ob.id || null,
+            obligationPaymentKey: paymentKey
+            });
+            created = true;
         });
+
+        if (!created) {
+            alert(`ხარჯი "${ob.name}" ამ თვეში უკვე გატარებულია.`);
+            return;
+        }
 
         // Trigger push and in-app activity notification
         await addActivityNotification("add", {
@@ -1963,7 +2005,7 @@ window.payObligationDirect = async function(index) {
             description: ob.name
         });
 
-        alert(`ხარჯი "${ob.name}" (₾${ob.amount}) წარმატებით ჩამოიჭრა და დაემატა მიმდინარე თვის გასავლებს!`);
+        alert(`ხარჯი "${ob.name}" (₾${ob.amount}) წარმატებით დაემატა მიმდინარე თვის გასავლებს!`);
     } catch (err) {
         console.error("Error paying obligation:", err);
         alert("შეცდომა ხარჯის ჩამოჭრისას: " + err.message);
@@ -2720,62 +2762,26 @@ async function addActivityNotification(actionType, txData) {
                 read: false
             });
 
-            // Send FCM Push notification to all other users' registered tokens
-            const tokensSnap = await db.collection("fcmTokens").get();
-            const tokens = [];
-            tokensSnap.forEach(doc => {
-                const data = doc.data();
-                if (data.userId !== currentUserId && data.token) {
-                    tokens.push(data.token);
-                }
-            });
-
-            if (tokens.length > 0) {
-                console.log("Triggering FCM background Push notifications to other users:", tokens);
-                for (const t of tokens) {
-                    fetch("https://fcm.googleapis.com/fcm/send", {
-                        method: "POST",
-                        headers: {
-                            "Content-Type": "application/json",
-                            "Authorization": "key=AIzaSyAVSnqQwwYZmRCD5ejl0aFS4to4Z3SB0tw" // Fallback to Project API Key
-                        },
-                        body: JSON.stringify({
-                            to: t,
-                            notification: {
-                                title: "Budgeted Studio",
-                                body: message,
-                                icon: "icons/icon-192x192.png",
-                                badge: "icons/icon-192x192.png"
-                            }
-                        })
-                    }).catch(err => console.warn("FCM push send error:", err));
-                }
-            }
-
-            // Send OneSignal Web Push notification to all subscribed devices (including closed phones)
-            const oneSignalAppId = localStorage.getItem("onesignal_app_id") || "DEFAULT_ONESIGNAL_APP_ID";
-            const oneSignalRestApiKey = localStorage.getItem("onesignal_rest_key") || "";
-
-            if (oneSignalAppId && oneSignalAppId !== "DEFAULT_ONESIGNAL_APP_ID" && oneSignalRestApiKey) {
-                fetch("https://onesignal.com/api/v1/notifications", {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json; charset=utf-8",
-                        "Authorization": `Basic ${oneSignalRestApiKey}`
-                    },
-                    body: JSON.stringify({
-                        app_id: oneSignalAppId,
-                        included_segments: ["Subscribed Users"],
-                        headings: { ka: "Budgeted Studio", en: "Budgeted Studio" },
-                        contents: { ka: message, en: message },
-                        url: window.location.href
-                    })
-                }).then(res => res.json()).then(resData => {
-                    console.log("OneSignal Web Push sent successfully:", resData);
-                }).catch(err => console.warn("OneSignal Web Push error:", err));
-            }
+            // Push delivery must be sent by a trusted backend. Never expose
+            // FCM server keys or OneSignal REST keys in browser code.
         } catch (e) {
             console.error("Error adding notification:", e);
         }
+    }
+}
+
+async function addSettingsActivityNotification(changedSections) {
+    const actor = currentUserDisplayName || "მომხმარებელი";
+    const message = `${actor}-მ შეცვალა ბიუჯეტის პარამეტრები: ${changedSections.join(", ")}`;
+    try {
+        await db.collection("notifications").add({
+            message,
+            createdBy: actor,
+            createdAt: Date.now(),
+            read: false,
+            type: "settings"
+        });
+    } catch (error) {
+        console.error("Error adding settings notification:", error);
     }
 }

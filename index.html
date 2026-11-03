@@ -846,70 +846,19 @@
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-messaging-compat.js"></script>
-    <!-- Direct inline accordion and payment handlers for guaranteed responsiveness -->
+    <!-- Accordion and payment behavior are managed by app.js to avoid duplicate handlers. -->
     <script>
-        function toggleObligationsAccordion() {
+        window.toggleObligationsAccordion = function() {
             var bodyEl = document.getElementById("obligations-body");
             var btnEl = document.getElementById("obligations-toggle-btn");
             if (!bodyEl) return;
             var isHidden = bodyEl.classList.contains("hidden");
-            if (isHidden) {
-                bodyEl.classList.remove("hidden");
-                if (btnEl) btnEl.classList.add("open");
-                if (typeof renderObligationsDashboard === "function") {
-                    renderObligationsDashboard();
-                }
-            } else {
-                bodyEl.classList.add("hidden");
-                if (btnEl) btnEl.classList.remove("open");
-            }
-        }
-
-        window.openPayObligationModalByIndex = async function(index) {
-            if (!window.currentObligationsList || !window.currentObligationsList[index]) {
-                alert("ხარჯის მონაცემები იტვირთება, გთხოვთ სცადოთ 1 წამში...");
-                return;
-            }
-            var ob = window.currentObligationsList[index];
-
-            var confirmed = window.confirm("ნამდვილად გსურთ \"" + ob.name + "\"-ს (₾" + Number(ob.amount).toFixed(2) + ") ჩამოჭრა მიმდინარე თვის ბიუჯეტიდან?\nთანხა მომენტალურად შევა გასავლებში.");
-            if (!confirmed) return;
-
-            try {
-                var now = Date.now();
-                var user = (typeof currentUserDisplayName !== "undefined" && currentUserDisplayName) ? currentUserDisplayName : "სტუმარი";
-                
-                // Add expense to Firestore
-                await firebase.firestore().collection("transactions").add({
-                    amount: parseFloat(ob.amount),
-                    type: "expense",
-                    category: "სავალდებულო ხარჯი",
-                    description: ob.name,
-                    date: now,
-                    createdBy: user,
-                    createdAt: now,
-                    isMandatory: true
-                });
-
-                if (typeof addActivityNotification === "function") {
-                    addActivityNotification("add", {
-                        amount: parseFloat(ob.amount),
-                        type: "expense",
-                        category: "სავალდებულო ხარჯი",
-                        description: ob.name
-                    });
-                }
-
-                alert("ხარჯი \"" + ob.name + "\" (₾" + ob.amount + ") წარმატებით ჩამოიჭრა და დაემატა მიმდინარე თვის გასავლებს!");
-            } catch (err) {
-                console.error("Error paying obligation:", err);
-                alert("შეცდომა ხარჯის ჩამოჭრისას: " + err.message);
-            }
+            bodyEl.classList.toggle("hidden", !isHidden);
+            if (btnEl) btnEl.classList.toggle("open", isHidden);
+            if (isHidden && typeof renderObligationsDashboard === "function") renderObligationsDashboard();
         };
-
-        window.payObligationDirect = window.openPayObligationModalByIndex;
     </script>
-    <script src="app.js?v=4.0"></script>
+    <script src="app.js?v=4.1"></script>
 </body>
 </html>
 
