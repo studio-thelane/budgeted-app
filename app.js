@@ -1971,7 +1971,7 @@ window.payObligationDirect = async function(index) {
         const obligationId = ob.id || ob.name.trim().toLowerCase().replace(/\s+/g, "-");
         const paymentKey = `${monthKey}_${obligationId}`;
         const paymentDocId = (typeof btoa === "function")
-            ? `obligation_${btoa(unescape(encodeURIComponent(paymentKey))).replace(/=+$/g, "")}`
+            ? `obligation_${btoa(unescape(encodeURIComponent(paymentKey))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "")}`
             : `obligation_${encodeURIComponent(paymentKey).replace(/%/g, "_")}`;
         const paymentRef = db.collection("transactions").doc(paymentDocId);
         let created = false;
