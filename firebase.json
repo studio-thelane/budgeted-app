@@ -5,7 +5,15 @@
     "ignore": [
       "firebase.json",
       "**/.*",
-      "**/node_modules/**"
+      "**/node_modules/**",
+      "functions/**",
+      "docs/**",
+      "tests/**",
+      "firestore.rules",
+      "*-debug.log",
+      "package*.json",
+      "push-client.js",
+      "push-config.json"
     ],
     "rewrites": [
       {
@@ -13,5 +21,8 @@
         "destination": "/index.html"
       }
     ]
+  },
+  "firestore": {
+    "rules": "firestore.rules"
   }
 }

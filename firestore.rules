@@ -1,0 +1,27 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() { return request.auth != null; }
+    function approved() {
+      return signedIn() &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.status == 'approved';
+    }
+    match /users/{uid} {
+      allow get: if signedIn() && request.auth.uid == uid;
+      allow list: if false;
+      allow create: if signedIn() && request.auth.uid == uid &&
+        request.resource.data.keys().hasOnly(['uid', 'email', 'displayName', 'status', 'createdAt']) &&
+        request.resource.data.keys().hasAll(['uid', 'email', 'displayName', 'status', 'createdAt']) &&
+        request.resource.data.uid == uid &&
+        request.resource.data.email == request.auth.token.email &&
+        request.resource.data.displayName is string && request.resource.data.displayName.size() <= 100 &&
+        request.resource.data.status == 'pending' && request.resource.data.createdAt == request.time;
+      // Approval and rejection are managed in Firebase Console using IAM, never by the app.
+      allow update, delete: if false;
+    }
+    match /transactions/{id} { allow read, write: if approved(); }
+    match /settings/{id} { allow read, write: if approved(); }
+    match /notifications/{id} { allow read, write: if approved(); }
+    match /{document=**} { allow read, write: if false; }
+  }
+}

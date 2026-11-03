@@ -291,41 +291,99 @@ document.addEventListener("DOMContentLoaded", () => {
     logoutBtn.addEventListener("click", handleLogout);
     if (settingsLogoutBtn) settingsLogoutBtn.addEventListener("click", handleLogout);
 
-    // Handle Auth State Changes
-    auth.onAuthStateChanged((user) => {
-        if (user) {
-            currentUserId = user.uid;
-            currentUserDisplayName = user.displayName || user.email.split('@')[0];
-            userNameDisplay.textContent = currentUserDisplayName;
-            userEmailDisplay.textContent = user.email;
-
-            authScreen.classList.add("hidden");
-            appScreen.classList.remove("hidden");
-
-            // Re-initialize Lucide Icons on layout swap
-            lucide.createIcons();
-
-            // Connect real-time transactions and settings listener
-            connectFirestore();
-            connectSettingsSync();
-            connectNotificationsSync();
-
-            // SPA Routing: Initial Routing based on URL Hash
-            handleHashRouting();
-        } else {
-            currentUserId = null;
+    // Membership approval is enforced both here and by Firestore Security Rules.
+    let unsubscribeMembership = null;
+    let authGeneration = 0;
+    let financialListenersActive = false;
+    const approvalScreen = document.getElementById("approval-screen");
+    function stopFinancialListeners() {
+        [unsubscribeTransactions, unsubscribeSettings, unsubscribeNotifications].forEach(unsubscribe => {
+            if (unsubscribe) unsubscribe();
+        });
+        unsubscribeTransactions = unsubscribeSettings = unsubscribeNotifications = null;
+        financialListenersActive = false;
+        settingsUnlocked = false;
+        transactionsList = [];
+        studioObligations = [];
+        studioIncomeSources = [];
+        studioRecurringIncomes = [];
+        notificationsList = [];
+        window.currentObligationsList = [];
+        renderTransactionsTable();
+        renderNotificationsUI();
+        document.querySelectorAll(".modal-overlay").forEach(modal => modal.classList.add("hidden"));
+    }
+    function showApproval(title, message, email) {
+        appScreen.classList.add("hidden");
+        authScreen.classList.add("hidden");
+        approvalScreen.classList.remove("hidden");
+        document.getElementById("approval-title").textContent = title;
+        document.getElementById("approval-message").textContent = message;
+        document.getElementById("approval-email").textContent = email || "";
+    }
+    document.getElementById("approval-logout-btn").addEventListener("click", handleLogout);
+    document.getElementById("approval-retry-btn").addEventListener("click", () => window.location.reload());
+    auth.onAuthStateChanged(async user => {
+        const generation = ++authGeneration;
+        if (unsubscribeMembership) unsubscribeMembership();
+        unsubscribeMembership = null;
+        stopFinancialListeners();
+        currentUserId = user ? user.uid : null;
+        if (!user) {
+            approvalScreen.classList.add("hidden");
             authScreen.classList.remove("hidden");
             appScreen.classList.add("hidden");
-            // Clear inputs
             authForm.reset();
-            if (unsubscribeSettings) {
-                unsubscribeSettings();
-                unsubscribeSettings = null;
-            }
-            if (unsubscribeNotifications) {
-                unsubscribeNotifications();
-                unsubscribeNotifications = null;
-            }
+            return;
+        }
+        currentUserDisplayName = user.displayName || user.email.split('@')[0];
+        userNameDisplay.textContent = currentUserDisplayName;
+        userEmailDisplay.textContent = user.email;
+        showApproval("წვდომის შემოწმება", "გთხოვთ დაელოდოთ…", user.email);
+        const memberRef = db.collection("users").doc(user.uid);
+        try {
+            await db.runTransaction(async tx => {
+                const member = await tx.get(memberRef);
+                if (!member.exists) tx.set(memberRef, {
+                    uid: user.uid,
+                    email: user.email,
+                    displayName: (user.displayName || user.email.split('@')[0]).slice(0, 100),
+                    status: "pending",
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+            });
+            if (generation !== authGeneration) return;
+            unsubscribeMembership = memberRef.onSnapshot(snapshot => {
+                if (generation !== authGeneration) return;
+                const status = snapshot.exists ? snapshot.data().status : "pending";
+                if (status === "approved") {
+                    approvalScreen.classList.add("hidden");
+                    authScreen.classList.add("hidden");
+                    appScreen.classList.remove("hidden");
+                    if (!financialListenersActive) {
+                        financialListenersActive = true;
+                        connectFirestore();
+                        connectSettingsSync();
+                        connectNotificationsSync();
+                        handleHashRouting();
+                        if (window.lucide) lucide.createIcons();
+                    }
+                } else {
+                    stopFinancialListeners();
+                    showApproval(status === "rejected" ? "წვდომა უარყოფილია" : "დადასტურების მოლოდინში",
+                        status === "rejected" ? "ადმინისტრატორმა ამ ანგარიშის წვდომა უარყო." :
+                        "რეგისტრაცია მიღებულია. მონაცემებზე წვდომას ადმინისტრატორის დადასტურების შემდეგ მიიღებთ.", user.email);
+                }
+            }, error => {
+                stopFinancialListeners();
+                showApproval("წვდომა ვერ შემოწმდა", "სცადეთ ხელახლა ან დაუკავშირდით ადმინისტრატორს.", user.email);
+                console.error("Membership sync error:", error.code);
+            });
+        } catch (error) {
+            if (generation !== authGeneration) return;
+            stopFinancialListeners();
+            showApproval("წვდომა ვერ შემოწმდა", "სცადეთ ხელახლა ან დაუკავშირდით ადმინისტრატორს.", user.email);
+            console.error("Membership registration error:", error.code);
         }
     });
 

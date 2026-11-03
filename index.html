@@ -71,6 +71,15 @@
         </div>
     </div>
 
+    <div id="approval-screen" class="auth-container hidden">
+        <div class="auth-card">
+            <div class="auth-header"><h2 id="approval-title">წვდომის შემოწმება</h2></div>
+            <p id="approval-message" role="status" aria-live="polite">გთხოვთ დაელოდოთ…</p>
+            <p id="approval-email" style="margin:16px 0;overflow-wrap:anywhere"></p>
+            <button id="approval-retry-btn" type="button" class="btn btn-secondary">ხელახლა შემოწმება</button>
+            <button id="approval-logout-btn" type="button" class="btn btn-primary">გამოსვლა</button>
+        </div>
+    </div>
     <!-- 2. MAIN APP SCREEN (აპლიკაცია) -->
     <div id="app-screen" class="app-container hidden">
         <!-- Sidebar (გვერდითი პანელი) -->
@@ -858,7 +867,7 @@
             if (isHidden && typeof renderObligationsDashboard === "function") renderObligationsDashboard();
         };
     </script>
-    <script src="app.js?v=4.4"></script>
+    <script src="app.js?v=5.0"></script>
 </body>
 </html>
 
