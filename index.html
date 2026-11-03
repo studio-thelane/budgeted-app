@@ -1,0 +1,915 @@
+<!DOCTYPE html>
+<html lang="ka">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Budgeted - საზიარო ხარჯების მენეჯერი</title>
+    <!-- Google Fonts - Bebas Neue, Montserrat, Noto Sans Georgian -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Montserrat:wght@300;400;500;600;700&family=Noto+Sans+Georgian:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- Chart.js for graphs -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Lucide Icons for beautiful icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- OneSignal Web Push SDK v16 -->
+    <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
+    <link rel="stylesheet" href="style.css?v=2.0">
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#6c63ff">
+    <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+</head>
+<body>
+    <!-- 1. AUTH SCREEN (ავტორიზაცია) -->
+    <div id="auth-screen" class="auth-container">
+        <div class="auth-card">
+            <div class="auth-header">
+                <div class="app-logo">
+                    <i data-lucide="wallet" class="logo-icon"></i>
+                    <span>Budgeted</span>
+                </div>
+                <h2>კეთილი იყოს თქვენი მობრძანება</h2>
+                <p>შედით სტუდიის ხარჯების სამართავად</p>
+            </div>
+            
+            <form id="auth-form">
+                <div class="form-group">
+                    <label for="auth-email">ელ.ფოსტა</label>
+                    <div class="input-wrapper">
+                        <i data-lucide="mail"></i>
+                        <input type="email" id="auth-email" placeholder="name@example.com" required>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="auth-password">პაროლი</label>
+                    <div class="input-wrapper">
+                        <i data-lucide="lock"></i>
+                        <input type="password" id="auth-password" placeholder="••••••••" required>
+                        <button type="button" id="auth-reveal-password-btn" class="btn-reveal-password-auth">
+                            <i data-lucide="eye" id="auth-password-eye-icon"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="form-group signup-only hidden">
+                    <label for="auth-name">თქვენი სახელი</label>
+                    <div class="input-wrapper">
+                        <i data-lucide="user"></i>
+                        <input type="text" id="auth-name" placeholder="ლუკა">
+                    </div>
+                </div>
+                
+                <button type="submit" id="auth-submit-btn" class="btn btn-primary">შესვლა</button>
+            </form>
+            
+            <div class="auth-footer">
+                <span id="auth-switch-text">არ გაქვთ ანგარიში?</span>
+                <a href="#" id="auth-switch-link">დარეგისტრირდით</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- 2. MAIN APP SCREEN (აპლიკაცია) -->
+    <div id="app-screen" class="app-container hidden">
+        <!-- Sidebar (გვერდითი პანელი) -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <div class="app-logo">
+                    <i data-lucide="wallet" class="logo-icon"></i>
+                    <span>Budgeted</span>
+                </div>
+            </div>
+            
+            <nav class="sidebar-nav">
+                <a href="#dashboard" class="nav-item active" id="nav-dashboard">
+                    <i data-lucide="layout-dashboard"></i>
+                    <span>Dashboard</span>
+                </a>
+                <a href="#transactions" class="nav-item" id="nav-transactions">
+                    <i data-lucide="arrow-left-right"></i>
+                    <span>ტრანზაქციები</span>
+                </a>
+                <a href="#partners" class="nav-item" id="nav-partners">
+                    <i data-lucide="handshake"></i>
+                    <span>პარტნიორები</span>
+                </a>
+                <a href="#analytics" class="nav-item" id="nav-analytics">
+                    <i data-lucide="calendar"></i>
+                    <span>ანალიტიკა</span>
+                </a>
+                <a href="#settings" class="nav-item" id="nav-settings">
+                    <i data-lucide="settings"></i>
+                    <span>პარამეტრები</span>
+                </a>
+            </nav>
+            
+            <div class="sidebar-footer">
+                <div class="user-profile">
+                    <div class="profile-avatar">
+                        <i data-lucide="user"></i>
+                    </div>
+                    <div class="profile-info">
+                        <span class="user-display-name" id="user-name">User</span>
+                        <span class="user-email" id="user-email">user@email.com</span>
+                    </div>
+                </div>
+                <button id="logout-btn" class="btn btn-logout">
+                    <i data-lucide="log-out"></i>
+                    <span>გამოსვლა</span>
+                </button>
+            </div>
+        </aside>
+
+        <!-- Bottom Navigation for Mobile -->
+        <nav class="bottom-nav">
+            <a href="#dashboard" class="bottom-nav-item active" id="bottom-nav-dashboard">
+                <i data-lucide="layout-dashboard"></i>
+                <span>მთავარი</span>
+            </a>
+            <a href="#transactions" class="bottom-nav-item" id="bottom-nav-transactions">
+                <i data-lucide="arrow-left-right"></i>
+                <span>ისტორია</span>
+            </a>
+            <a href="#partners" class="bottom-nav-item" id="bottom-nav-partners">
+                <i data-lucide="handshake"></i>
+                <span>პარტნიორები</span>
+            </a>
+            <a href="#analytics" class="bottom-nav-item" id="bottom-nav-analytics">
+                <i data-lucide="calendar"></i>
+                <span>ანალიტიკა</span>
+            </a>
+            <a href="#settings" class="bottom-nav-item" id="bottom-nav-settings">
+                <i data-lucide="settings"></i>
+                <span>პარამეტრები</span>
+            </a>
+        </nav>
+
+        <!-- Main Content (მთავარი პანელი) -->
+        <main class="main-content">
+            <!-- VIEW 1: DASHBOARD -->
+            <div id="view-dashboard" class="app-view">
+                <header class="content-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px;">
+                    <div class="header-title">
+                        <h1>პოდკასტ სტუდია</h1>
+                        <p>სტუდიის შემოსავლებისა და ხარჯების საზიარო კონტროლი</p>
+                    </div>
+                    <div class="header-quick-actions" style="display: flex; gap: 10px; align-items: center;">
+                        <!-- Notification Bell Container -->
+                        <div class="notification-container" style="position: relative;">
+                            <button id="notification-bell" class="btn-notification-bell" style="background: rgba(255, 255, 255, 0.05); color: #fff; border: 1px solid var(--border-color); width: 40px; height: 40px; border-radius: 6px; display: flex; align-items: center; justify-content: center; cursor: pointer; position: relative; transition: all var(--transition-speed); padding: 0;">
+                                <i data-lucide="bell" style="width: 18px; height: 18px;"></i>
+                                <span id="notification-badge" class="badge-unread hidden" style="position: absolute; top: -2px; right: -2px; background: var(--danger-red); width: 10px; height: 10px; border-radius: 50%; border: 2px solid var(--bg-card);"></span>
+                            </button>
+                        </div>
+                        <button id="btn-quick-income" class="btn" style="background: var(--success-gradient); color: #fff; border: none; font-size: 0.85rem; font-weight: 600; padding: 10px 16px; border-radius: 6px; cursor: pointer; display: flex; align-items: center; gap: 8px; box-shadow: 0 4px 12px rgba(16, 185, 129, 0.2);">
+                            <i data-lucide="plus-circle" style="width: 16px; height: 16px;"></i> შემოსავალი
+                        </button>
+                        <button id="btn-quick-expense" class="btn" style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); color: #fff; border: none; font-size: 0.85rem; font-weight: 600; padding: 10px 16px; border-radius: 6px; cursor: pointer; display: flex; align-items: center; gap: 8px; box-shadow: 0 4px 12px rgba(245, 158, 11, 0.2);">
+                            <i data-lucide="minus-circle" style="width: 16px; height: 16px;"></i> გასავალი
+                        </button>
+                    </div>
+                </header>
+
+                <!-- Overview Cards (ბალანსის ბარათები) -->
+                <section class="overview-grid">
+                    <!-- Card 1: Total Spent -->
+                    <div class="card status-card">
+                        <div class="card-header-row">
+                            <span class="card-label">ჯამური გასავალი</span>
+                            <div class="card-icon expense-icon">
+                                <i data-lucide="trending-down"></i>
+                            </div>
+                        </div>
+                        <h3 class="card-value" id="total-expense">₾0.00</h3>
+                        <div class="budget-progress-container">
+                            <div class="budget-meta">
+                                <span>ბიუჯეტი (ყოველთვიური)</span>
+                                <span id="budget-percentage">0%</span>
+                            </div>
+                            <div class="progress-bar">
+                                <div class="progress-fill" id="budget-progress-bar" style="width: 0%"></div>
+                            </div>
+                            <span class="progress-detail" id="budget-detail">₾0.00 / ₾1,500.00</span>
+                        </div>
+                    </div>
+
+                    <!-- Card 2: Total Income -->
+                    <div class="card status-card">
+                        <div class="card-header-row">
+                            <span class="card-label">ჯამური შემოსავალი</span>
+                            <div class="card-icon income-icon">
+                                <i data-lucide="trending-up"></i>
+                            </div>
+                        </div>
+                        <h3 class="card-value" id="total-income">₾0.00</h3>
+                        <p class="card-subtitle">სულ მიღებული თანხა</p>
+                    </div>
+
+                    <!-- Card 3: Balance -->
+                    <div class="card status-card">
+                        <div class="card-header-row">
+                            <span class="card-label">სტუდიის ბალანსი (მოგება)</span>
+                            <div class="card-icon balance-icon" id="balance-icon-container">
+                                <i data-lucide="piggy-bank"></i>
+                            </div>
+                        </div>
+                        <h3 class="card-value" id="net-balance">₾0.00</h3>
+                        <p class="card-subtitle" id="balance-subtitle">წმინდა შემოსავალი</p>
+                    </div>
+                </section>
+
+                <!-- Middle Section: AI Input & Manual Forms -->
+                <section class="action-section ai-only-section">
+                    <!-- Gemini Smart Input -->
+                    <div class="card ai-card full-width-card">
+                        <div class="card-title">
+                            <i data-lucide="sparkles" class="ai-spark-icon"></i>
+                            <h3>Gemini AI სწრაფი შეყვანა</h3>
+                        </div>
+                        <p class="ai-desc">ჩაწერეთ ტექსტი ქართულად და Gemini ავტომატურად ასახავს ტრანზაქციას (მაგ: "ქირა გადავიხადეთ 500 ლარი" ან "შემოვიდა სპონსორისგან 1200 ლარი")</p>
+                        <div class="ai-input-group" style="display: flex; gap: 8px; width: 100%;">
+                            <input type="text" id="ai-text-input" placeholder="დაწერეთ აქ რა მოხდა ან გამოიყენეთ მიკროფონი..." style="flex: 1;">
+                            <button id="ai-mic-btn" class="btn btn-mic" title="ხმოვანი შეყვანა" type="button" style="background: rgba(99, 102, 241, 0.1); color: var(--accent-purple); border: 1px solid rgba(99, 102, 241, 0.2); width: 44px; height: 44px; border-radius: 6px; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all var(--transition-speed); padding: 0;">
+                                <i data-lucide="mic" id="mic-icon" style="width: 18px; height: 18px;"></i>
+                            </button>
+                            <button id="ai-submit-btn" class="btn btn-ai" style="padding: 0 16px;">
+                                <i data-lucide="send"></i>
+                                <span>გაგზავნა</span>
+                            </button>
+                        </div>
+                        <div id="ai-status" class="ai-status-msg hidden"></div>
+                    </div>
+                </section>
+
+
+                <!-- Obligations Section (Collapsible Accordion) -->
+                <section class="obligations-section" id="obligations-section">
+                    <div class="card obligations-card-collapsible">
+                        <div class="obligations-header" id="obligations-toggle-btn" onclick="toggleObligationsAccordion()" role="button" tabindex="0" title="დააჭირეთ გასახსნელად / დასაკეცად">
+                            <div class="card-title" style="margin-bottom: 0;">
+                                <i data-lucide="calendar-check" style="color: var(--accent-indigo);"></i>
+                                <h3>სავალდებულო მიმდინარე თვის ხარჯი</h3>
+                                <span id="obligations-summary-badge" class="badge" style="background: rgba(232, 98, 26, 0.15); color: var(--accent-indigo); font-size: 0.75rem; margin-left: 8px; font-weight: 500;">
+                                    <!-- Dynamic count -->
+                                </span>
+                            </div>
+                            <div class="obligations-toggle-icon">
+                                <i data-lucide="chevron-down" id="obligations-chevron-icon"></i>
+                            </div>
+                        </div>
+                        <div class="obligations-body hidden" id="obligations-body">
+                            <div class="obligations-card-layout">
+                                <div class="obligations-left">
+                                    <div class="obligations-checklist" id="obligations-checklist">
+                                        <!-- Loaded dynamically with Pay buttons -->
+                                    </div>
+                                </div>
+                                <div class="obligations-right">
+                                    <div class="card-title justify-center">
+                                        <h3>ვალდებულებების განაწილება</h3>
+                                    </div>
+                                    <div class="chart-wrapper">
+                                        <canvas id="obligationsChart"></canvas>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Charts Section -->
+                <section class="charts-grid" style="grid-template-columns: 1fr;">
+                    <div class="card chart-card">
+                        <h3>ხარჯების კატეგორიები</h3>
+                        <div class="chart-wrapper">
+                            <canvas id="categoryChart"></canvas>
+                        </div>
+                    </div>
+                </section>
+            </div>
+
+            <!-- VIEW 2: TRANSACTIONS HISTORY -->
+            <div id="view-transactions" class="app-view hidden">
+                <header class="content-header">
+                    <div class="header-title">
+                        <h1>ტრანზაქციების ისტორია</h1>
+                        <p>შემოსავლებისა და გასავლების სრული არქივი</p>
+                    </div>
+                </header>
+
+                <section class="transactions-section">
+                    <div class="history-section-header">
+                        <h2>ტრანზაქციების ისტორია</h2>
+                        <button id="btn-export" class="btn btn-secondary btn-sm">
+                            <i data-lucide="download"></i>
+                            <span>ჩამოტვირთვა (Excel)</span>
+                        </button>
+                    </div>
+                    <div class="history-grid">
+                        <!-- Left side: Income History -->
+                        <div class="card table-card">
+                            <div class="table-header">
+                                <h3>შემოსავლების ისტორია</h3>
+                            </div>
+                            <div class="table-wrapper">
+                                <table>
+                                    <thead>
+                                        <tr>
+                                            <th>თარიღი</th>
+                                            <th>წყარო</th>
+                                            <th>კატეგორია</th>
+                                            <th>შემტანი</th>
+                                            <th>თანხა</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="income-transactions-list">
+                                        <!-- Dynamic income rows -->
+                                    </tbody>
+                                </table>
+                            </div>
+                            <div id="no-income-transactions" class="empty-state hidden">
+                                <i data-lucide="inbox"></i>
+                                <p>შემოსავლები ვერ მოიძებნა</p>
+                            </div>
+                        </div>
+
+                        <!-- Right side: Expense History -->
+                        <div class="card table-card">
+                            <div class="table-header">
+                                <h3>გასავლების ისტორია</h3>
+                            </div>
+                            <div class="table-wrapper">
+                                <table>
+                                    <thead>
+                                        <tr>
+                                            <th>თარიღი</th>
+                                            <th>მიზნობრიობა</th>
+                                            <th>კატეგორია</th>
+                                            <th>ტიპი</th>
+                                            <th>შემტანი</th>
+                                            <th>თანხა</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="expense-transactions-list">
+                                        <!-- Dynamic expense rows -->
+                                    </tbody>
+                                </table>
+                            </div>
+                            <div id="no-expense-transactions" class="empty-state hidden">
+                                <i data-lucide="inbox"></i>
+                                <p>გასავლები ვერ მოიძებნა</p>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+            </div>
+
+            <!-- VIEW 3: PARTNERS (EXPECTED RECURRING INCOMES) -->
+            <div id="view-partners" class="app-view hidden">
+                <header class="content-header">
+                    <div class="header-title">
+                        <h1>პარტნიორული შემოსავლები</h1>
+                        <p>ყოველთვიური სტაბილური შემოსავლების კონტროლი</p>
+                    </div>
+                </header>
+
+                <section class="partners-grid-layout">
+                    <div class="card partners-summary-card">
+                        <div class="partners-summary-left">
+                            <div class="card-title">
+                                <i data-lucide="piggy-bank"></i>
+                                <h3>პარტნიორული ბალანსი (მიმდინარე თვე)</h3>
+                            </div>
+                            <div class="partners-stats-row">
+                                <div class="stat-box">
+                                    <span class="stat-label">მოსალოდნელი ჯამი</span>
+                                    <span class="stat-value" id="partners-total-expected">₾0.00</span>
+                                </div>
+                                <div class="stat-box">
+                                    <span class="stat-label">ჩარიცხული</span>
+                                    <span class="stat-value text-success" id="partners-total-received">₾0.00</span>
+                                </div>
+                                <div class="stat-box">
+                                    <span class="stat-label">დარჩენილი</span>
+                                    <span class="stat-value text-danger" id="partners-total-pending">₾0.00</span>
+                                </div>
+                            </div>
+                            <div class="progress-bar-container" style="margin-top: 20px;">
+                                <div class="progress-bar">
+                                    <div class="progress-fill" id="partners-progress-fill" style="width: 0%; background: var(--success-gradient);"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="partners-summary-right">
+                            <div class="card-title justify-center" style="margin-bottom: 20px;">
+                                <h3>პარტნიორების სია</h3>
+                            </div>
+                            <div class="partners-list-container" id="partners-dashboard-list">
+                                <!-- Loaded dynamically: partnership list with verify deposit buttons -->
+                            </div>
+                        </div>
+                    </div>
+                </section>
+            </div>
+
+            <!-- VIEW 4: CALENDAR & ANALYTICS -->
+            <div id="view-analytics" class="app-view hidden">
+                <header class="content-header">
+                    <div class="header-title">
+                        <h1>ანალიტიკა და კალენდარი</h1>
+                        <p>ტრანზაქციების დროითი ანალიზი და ყოველდღიური კალენდარი</p>
+                    </div>
+                </header>
+
+                <div class="analytics-page-layout">
+                    <!-- Left Column: Calendar & Selected Day Details -->
+                    <div class="analytics-column-left">
+                        <div class="card calendar-card">
+                            <div class="calendar-header-row">
+                                <button id="calendar-prev-month-btn" class="btn btn-icon-sm" title="წინა თვე" style="background: none; border: 1px solid var(--border-color); color: var(--text-secondary); cursor: pointer; padding: 6px; border-radius: 4px; display: flex; align-items: center; justify-content: center;">
+                                    <i data-lucide="chevron-left" style="width: 16px; height: 16px;"></i>
+                                </button>
+                                <h3 id="calendar-month-year-title" class="calendar-title" style="font-family: var(--font-heading); font-size: 1.1rem; color: var(--text-primary); font-weight: 600; margin: 0;">ივლისი 2026</h3>
+                                <button id="calendar-next-month-btn" class="btn btn-icon-sm" title="შემდეგი თვე" style="background: none; border: 1px solid var(--border-color); color: var(--text-secondary); cursor: pointer; padding: 6px; border-radius: 4px; display: flex; align-items: center; justify-content: center;">
+                                    <i data-lucide="chevron-right" style="width: 16px; height: 16px;"></i>
+                                </button>
+                            </div>
+                            <div class="calendar-weekdays" style="display: grid; grid-template-columns: repeat(7, 1fr); text-align: center; font-size: 0.75rem; color: var(--text-secondary); font-weight: 600; margin-top: 15px; margin-bottom: 5px;">
+                                <div>ორშ</div>
+                                <div>სამ</div>
+                                <div>ოთხ</div>
+                                <div>ხუთ</div>
+                                <div>პარ</div>
+                                <div>შაბ</div>
+                                <div>კვი</div>
+                            </div>
+                            <div class="calendar-grid" id="calendar-days-grid" style="display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px;">
+                                <!-- Generated Dynamically -->
+                            </div>
+                        </div>
+
+                        <!-- Selected Day Detail Card -->
+                        <div class="card calendar-detail-card" style="margin-top: 20px;">
+                            <div class="card-title">
+                                <i data-lucide="list-todo" style="color: var(--accent-purple);"></i>
+                                <h3 id="calendar-selected-day-label">28 ივლისი, 2026 - ტრანზაქციები</h3>
+                            </div>
+                            <div class="calendar-selected-day-transactions" id="calendar-selected-day-list" style="margin-top: 15px;">
+                                <!-- Loaded dynamically: detail items -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Right Column: Time Filters & Interactive Chart -->
+                    <div class="analytics-column-right">
+                        <div class="card chart-analytics-card">
+                            <div class="analytics-header-row" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 12px;">
+                                <h3 style="margin: 0;">შემოსავლებისა და გასავლების ტრენდი</h3>
+                                <div class="analytics-filters-group" style="display: flex; gap: 8px;">
+                                    <button class="btn btn-filter active" data-filter="day">დღე</button>
+                                    <button class="btn btn-filter" data-filter="week">კვირა</button>
+                                    <button class="btn btn-filter" data-filter="month">თვე</button>
+                                    <button class="btn btn-filter" data-filter="year">წელი</button>
+                                </div>
+                            </div>
+                            <div class="chart-wrapper" style="height: 380px; position: relative;">
+                                <canvas id="analyticsTrendChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- VIEW 5: SETTINGS -->
+            <div id="view-settings" class="app-view hidden">
+                <header class="content-header">
+                    <div class="header-title">
+                        <h1>პარამეტრები</h1>
+                        <p>აპლიკაციის მართვა და სისტემური კონფიგურაცია</p>
+                    </div>
+                </header>
+
+                <!-- 5.1 Lock Screen for settings (shown if not unlocked) -->
+                <div id="settings-lock-screen" class="settings-lock-container">
+                    <div class="card lock-card" style="max-width: 400px; margin: 40px auto; padding: 30px; text-align: center;">
+                        <div class="lock-icon-wrapper" style="margin-bottom: 20px; color: var(--accent-purple);">
+                            <i data-lucide="shield-alert" style="width: 48px; height: 48px;"></i>
+                        </div>
+                        <h3 style="margin: 0; font-family: var(--font-heading); font-size: 1.3rem;">უსაფრთხოების ბარიერი</h3>
+                        <p style="color: var(--text-secondary); font-size: 0.85rem; margin-top: 8px; margin-bottom: 20px; line-height: 1.4;">პარამეტრებზე და ადმინისტრირებაზე წვდომისთვის შეიყვანეთ თქვენი ანგარიშის პაროლი.</p>
+                        <form id="settings-unlock-form">
+                            <div class="form-group" style="text-align: left;">
+                                <label for="settings-unlock-password">პაროლი</label>
+                                <div class="input-wrapper">
+                                    <i data-lucide="lock"></i>
+                                    <input type="password" id="settings-unlock-password" placeholder="••••••••" required>
+                                </div>
+                            </div>
+                            <button type="submit" id="btn-unlock-settings" class="btn btn-primary btn-block" style="margin-top: 15px;">შესვლა</button>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- 5.2 Settings Content (hidden by default) -->
+                <div id="settings-content" class="hidden">
+                    <!-- Sticky Action Bar for Settings -->
+                    <div class="settings-sticky-bar">
+                        <button id="settings-exit-logout-btn" class="btn btn-secondary btn-sm" style="color: var(--danger-red); border-color: rgba(239, 68, 68, 0.2);">
+                            <i data-lucide="log-out"></i> გამოსვლა
+                        </button>
+                        <button id="settings-save-exit-btn" class="btn btn-primary btn-sm">
+                            <i data-lucide="save"></i> შენახვა და გამოსვლა
+                        </button>
+                    </div>
+
+                    <section class="settings-page-layout">
+                        <div class="card settings-main-card">
+                            <div class="settings-columns">
+                                <!-- Left Settings Column -->
+                                <div class="settings-column">
+                                    <div class="form-group">
+                                        <label for="settings-budget">ყოველთვიური ბიუჯეტის ლიმიტი (₾)</label>
+                                        <input type="number" id="settings-budget" placeholder="1500">
+                                    </div>
+                                    
+                                    <div class="form-group">
+                                        <div class="label-with-help">
+                                            <label for="settings-gemini-key">Gemini API გასაღები (API Key)</label>
+                                            <a href="https://aistudio.google.com/" target="_blank" class="help-link">გასაღების აღება <i data-lucide="external-link"></i></a>
+                                        </div>
+                                        <div class="input-wrapper-reveal">
+                                            <input type="password" id="settings-gemini-key" placeholder="AIzaSy..." disabled>
+                                            <button type="button" id="settings-reveal-key-btn" class="btn-reveal-key">
+                                                <i data-lucide="lock" id="reveal-icon"></i>
+                                            </button>
+                                        </div>
+                                        <p class="input-tip">გასაღები ინახება მხოლოდ თქვენს ბრაუზერში (LocalStorage-ში) და საჯაროდ არასდროს იტვირთება.</p>
+                                    </div>
+
+                                    <hr class="settings-divider">
+                                    
+                                    <div class="form-group obligations-mgmt-group">
+                                        <label>შემოსავლების წყაროების მართვა</label>
+                                        <div id="settings-income-sources-list" class="settings-obligations-list">
+                                            <!-- Dynamic list of income sources with delete buttons -->
+                                        </div>
+                                        
+                                        <div class="add-obligation-form">
+                                            <input type="text" id="new-source-name" placeholder="წყაროს სახელი (მაგ. პოდკასტი A)">
+                                            <button type="button" id="btn-add-source" class="btn btn-secondary btn-sm">დამატება</button>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Right Settings Column -->
+                                <div class="settings-column">
+                                    <div class="form-group obligations-mgmt-group">
+                                        <label>ყოველთვიური ვალდებულებების მართვა (Expenses)</label>
+                                        <div id="settings-obligations-list" class="settings-obligations-list">
+                                            <!-- Dynamic list of obligations with delete buttons -->
+                                        </div>
+                                        
+                                        <div class="add-obligation-form">
+                                            <input type="text" id="new-ob-name" placeholder="სახელი (მაგ. დაცვა)">
+                                            <input type="number" id="new-ob-amount" placeholder="თანხა (₾)">
+                                            <button type="button" id="btn-add-obligation" class="btn btn-secondary btn-sm">დამატება</button>
+                                        </div>
+                                    </div>
+
+                                    <hr class="settings-divider">
+
+                                    <div class="form-group obligations-mgmt-group">
+                                        <label>პარტნიორული შემოსავლების მართვა (Incomes)</label>
+                                        <div id="settings-partners-list" class="settings-obligations-list">
+                                            <!-- Dynamic list of recurring incomes with delete buttons -->
+                                        </div>
+                                        
+                                        <div class="add-obligation-form">
+                                            <input type="text" id="new-partner-name" placeholder="სახელი (მაგ. Beauty Talk)">
+                                            <input type="number" id="new-partner-amount" placeholder="თანხა (₾)">
+                                            <button type="button" id="btn-add-partner" class="btn btn-secondary btn-sm">დამატება</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- NEW SECTION: TRANSACTIONS ADMINISTRATION -->
+                    <section class="admin-section" id="admin-transactions-section" style="margin-top: 30px; margin-bottom: 30px;">
+                        <div class="card table-card">
+                            <div class="table-header">
+                                <div>
+                                    <h3 style="color: var(--danger-red); font-family: var(--font-heading); font-size: 1.2rem; display: flex; align-items: center; gap: 8px;">
+                                        <i data-lucide="shield-check" style="width: 20px; height: 20px;"></i> ტრანზაქციების ადმინისტრირება
+                                    </h3>
+                                    <p style="color: var(--text-secondary); font-size: 0.8rem; margin-top: 4px;">ნებისმიერი ძველი ტრანზაქციის წაშლა ან დეტალური რედაქტირება</p>
+                                </div>
+                            </div>
+                            <div class="table-wrapper" style="margin-top: 15px; max-height: 450px; overflow-y: auto;">
+                                <table>
+                                    <thead>
+                                        <tr>
+                                            <th>თარიღი</th>
+                                            <th>ტიპი</th>
+                                            <th>კატეგორია</th>
+                                            <th>აღწერა / წყარო</th>
+                                            <th>თანხა</th>
+                                            <th>შემტანი</th>
+                                            <th style="text-align: center;">მოქმედება</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="admin-transactions-list">
+                                        <!-- Loaded dynamically -->
+                                    </tbody>
+                                </table>
+                            </div>
+                            <div id="no-admin-transactions" class="empty-state hidden">
+                                <i data-lucide="inbox"></i>
+                                <p>ტრანზაქციები ვერ მოიძებნა</p>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- Reset Database Section -->
+                    <section class="admin-section" style="margin-top: 30px; margin-bottom: 50px;">
+                        <div class="card" style="border: 1px solid rgba(239, 68, 68, 0.2); background: rgba(239, 68, 68, 0.02); padding: 24px; border-radius: 8px;">
+                            <h3 style="color: var(--danger-red); font-family: var(--font-heading); font-size: 1.1rem; display: flex; align-items: center; gap: 8px; margin: 0 0 10px 0;">
+                                <i data-lucide="alert-triangle"></i> სისტემის სრული განულება
+                            </h3>
+                            <p style="color: var(--text-secondary); font-size: 0.8rem; line-height: 1.5; margin-bottom: 20px;">
+                                ყურადღება: ამ ღილაკზე დაჭერით სამუდამოდ წაიშლება ყველა გატარებული შემოსავალი, გასავალი და აქტივობების შეტყობინებები. 
+                                საწყისი ვალდებულებების და პარტნიორების კონფიგურაციები (settings/studio) შენარჩუნდება ხელუხლებელი.
+                            </p>
+                            <button id="btn-reset-db" class="btn" style="background: var(--danger-gradient); color: #fff; border: none; font-size: 0.85rem; font-weight: 600; padding: 12px 20px; border-radius: 6px; cursor: pointer; display: flex; align-items: center; gap: 8px; transition: all var(--transition-speed);">
+                                <i data-lucide="trash-2"></i> ⚠️ ბაზის სრული განულება
+                            </button>
+                        </div>
+                    </section>
+                </div>
+            </div>
+        </main>
+
+    <!-- Quick Income Modal -->
+    <div id="quick-income-modal" class="modal-overlay hidden" style="z-index: 1999;">
+        <div class="modal-card" style="max-width: 450px;">
+            <div class="modal-header">
+                <h2 style="color: #10b981; display: flex; align-items: center; gap: 8px;"><i data-lucide="plus-circle"></i> შემოსავლის დამატება</h2>
+                <button class="modal-close" id="quick-income-close-btn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <!-- Mini Gemini AI Panel for Income -->
+                <div class="mini-ai-container" style="background: rgba(99, 102, 241, 0.05); padding: 12px; border-radius: 6px; border: 1px dashed rgba(99, 102, 241, 0.2); margin-bottom: 15px;">
+                    <label style="font-size: 0.8rem; color: var(--accent-purple); font-weight: 600; display: block; margin-bottom: 6px;">Gemini AI სწრაფი/ხმოვანი შეყვანა</label>
+                    <div style="display: flex; gap: 6px; width: 100%;">
+                        <input type="text" id="quick-inc-ai-input" placeholder="მაგ: 1200 ლარი სპონსორისგან..." style="flex: 1; font-size: 0.85rem; padding: 8px 12px; height: 36px; border-radius: 4px; border: 1px solid var(--border-color); background: var(--bg-card); color: #ffffff;">
+                        <button id="quick-inc-ai-mic-btn" type="button" class="btn btn-mic" title="ხმოვანი შეყვანა" style="width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; padding: 0; background: rgba(99, 102, 241, 0.1); border-radius: 4px; border: 1px solid rgba(99, 102, 241, 0.2); cursor: pointer;">
+                            <i data-lucide="mic" id="quick-inc-mic-icon" style="width: 16px; height: 16px; color: var(--accent-purple);"></i>
+                        </button>
+                        <button id="quick-inc-ai-submit-btn" type="button" class="btn btn-ai" style="padding: 0 12px; font-size: 0.85rem; height: 36px; border-radius: 4px;">გაგზავნა</button>
+                    </div>
+                    <div id="quick-inc-ai-status" class="ai-status-msg hidden" style="font-size: 0.75rem; margin-top: 6px;"></div>
+                </div>
+
+                <form id="quick-income-form">
+                    <div class="form-group">
+                        <label for="quick-inc-amount">თანხა (₾)</label>
+                        <input type="number" id="quick-inc-amount" step="0.01" placeholder="0.00" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="quick-inc-category">კატეგორია (რაში / საიდან)</label>
+                        <select id="quick-inc-category" required>
+                            <option value="პოდკასტის შემოსავალი">პოდკასტის შემოსავალი</option>
+                            <option value="სტუდიის გაქირავება">სტუდიის გაქირავება</option>
+                            <option value="სხვა შემოსავალი">სხვა შემოსავალი</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="quick-inc-source">საიდან შემოვიდა (წყარო, ვისგან / რისთვის)</label>
+                        <input type="text" id="quick-inc-source" list="quick-income-sources-list" placeholder="აირჩიეთ ან ჩაწერეთ..." required>
+                        <datalist id="quick-income-sources-list">
+                            <!-- Dynamic income sources -->
+                        </datalist>
+                    </div>
+                    <div class="form-group">
+                        <label for="quick-inc-date">თარიღი</label>
+                        <input type="date" id="quick-inc-date" required>
+                    </div>
+                    <button type="submit" class="btn btn-success btn-block" style="background-color: #10b981; border-color: #10b981; margin-top: 15px;">შემოსავლის დამატება</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Expense Modal -->
+    <div id="quick-expense-modal" class="modal-overlay hidden" style="z-index: 1999;">
+        <div class="modal-card" style="max-width: 450px;">
+            <div class="modal-header">
+                <h2 style="color: #e8621a; display: flex; align-items: center; gap: 8px;"><i data-lucide="minus-circle"></i> გასავლის დამატება</h2>
+                <button class="modal-close" id="quick-expense-close-btn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <!-- Mini Gemini AI Panel for Expense -->
+                <div class="mini-ai-container" style="background: rgba(99, 102, 241, 0.05); padding: 12px; border-radius: 6px; border: 1px dashed rgba(99, 102, 241, 0.2); margin-bottom: 15px;">
+                    <label style="font-size: 0.8rem; color: var(--accent-purple); font-weight: 600; display: block; margin-bottom: 6px;">Gemini AI სწრაფი/ხმოვანი შეყვანა</label>
+                    <div style="display: flex; gap: 6px; width: 100%;">
+                        <input type="text" id="quick-exp-ai-input" placeholder="მაგ: ქირა გადავიხადეთ 500 ლარი..." style="flex: 1; font-size: 0.85rem; padding: 8px 12px; height: 36px; border-radius: 4px; border: 1px solid var(--border-color); background: var(--bg-card); color: #ffffff;">
+                        <button id="quick-exp-ai-mic-btn" type="button" class="btn btn-mic" title="ხმოვანი შეყვანა" style="width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; padding: 0; background: rgba(99, 102, 241, 0.1); border-radius: 4px; border: 1px solid rgba(99, 102, 241, 0.2); cursor: pointer;">
+                            <i data-lucide="mic" id="quick-exp-mic-icon" style="width: 16px; height: 16px; color: var(--accent-purple);"></i>
+                        </button>
+                        <button id="quick-exp-ai-submit-btn" type="button" class="btn btn-ai" style="padding: 0 12px; font-size: 0.85rem; height: 36px; border-radius: 4px;">გაგზავნა</button>
+                    </div>
+                    <div id="quick-exp-ai-status" class="ai-status-msg hidden" style="font-size: 0.75rem; margin-top: 6px;"></div>
+                </div>
+
+                <form id="quick-expense-form">
+                    <div class="form-group">
+                        <label for="quick-exp-amount">თანხა (₾)</label>
+                        <input type="number" id="quick-exp-amount" step="0.01" placeholder="0.00" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="quick-exp-category">კატეგორია (რაში / საიდან)</label>
+                        <select id="quick-exp-category" required>
+                            <option value="ქირა">ქირა</option>
+                            <option value="ხელფასი">ხელფასი</option>
+                            <option value="კომუნალურები">კომუნალურები</option>
+                            <option value="აპარატურა">აპარატურა/ტექნიკა</option>
+                            <option value="მარკეტინგი">მარკეტინგი</option>
+                            <option value="სხვა ხარჯი">სხვა ხარჯი</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="quick-exp-desc">მიზნობრიობა / აღწერა (რისთვის / ვისთვის)</label>
+                        <input type="text" id="quick-exp-desc" placeholder="რაში დაიხარჯა / მიმღები..." required>
+                    </div>
+                    <div class="form-group">
+                        <label for="quick-exp-date">თარიღი</label>
+                        <input type="date" id="quick-exp-date" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-block" style="margin-top: 15px;">გასავლის დამატება</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Transaction Modal -->
+    <div id="edit-transaction-modal" class="modal-overlay hidden" style="z-index: 2000;">
+        <div class="modal-card" style="max-width: 500px;">
+            <div class="modal-header">
+                <h2>ტრანზაქციის რედაქტირება</h2>
+                <button class="modal-close" id="edit-modal-close-btn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="edit-transaction-form">
+                    <input type="hidden" id="edit-tx-id">
+                    <input type="hidden" id="edit-tx-type">
+                    
+                    <div class="form-group">
+                        <label for="edit-tx-amount">თანხა (₾)</label>
+                        <input type="number" id="edit-tx-amount" step="0.01" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="edit-tx-date">თარიღი</label>
+                        <input type="date" id="edit-tx-date" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="edit-tx-category">კატეგორია</label>
+                        <select id="edit-tx-category" required>
+                            <!-- Populated dynamically based on type -->
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="edit-tx-desc">აღწერა / მიზნობრიობა / წყარო</label>
+                        <input type="text" id="edit-tx-desc" required>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary btn-block" style="margin-top: 20px;">ცვლილებების შენახვა</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Pay Obligation Confirmation Modal -->
+    <div id="pay-obligation-modal" class="modal-overlay hidden" style="z-index: 2100;">
+        <div class="modal-card" style="max-width: 440px; text-align: center;">
+            <div style="width: 52px; height: 52px; border-radius: 50%; background: rgba(232, 98, 26, 0.12); display: flex; align-items: center; justify-content: center; margin: 0 auto 16px auto; color: var(--accent-indigo);">
+                <i data-lucide="alert-circle" style="width: 28px; height: 28px;"></i>
+            </div>
+            <h3 style="font-size: 1.15rem; margin-bottom: 8px; font-family: var(--font-heading); letter-spacing: 0.5px;">ხარჯის დადასტურება</h3>
+            <p id="pay-obligation-modal-text" style="color: var(--text-secondary); font-size: 0.85rem; line-height: 1.5; margin-bottom: 22px;">
+                <!-- Filled dynamically -->
+            </p>
+            <div style="display: flex; gap: 10px; justify-content: center;">
+                <button type="button" id="pay-obligation-cancel-btn" class="btn" style="flex: 1; background: rgba(255, 255, 255, 0.05); border: 1px solid var(--border-color); color: var(--text-primary); padding: 10px; border-radius: 6px; cursor: pointer; font-weight: 500;">
+                    გაუქმება
+                </button>
+                <button type="button" id="pay-obligation-confirm-btn" class="btn" style="flex: 1; background: var(--accent-gradient, #e8621a); color: #fff; border: none; padding: 10px; border-radius: 6px; cursor: pointer; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 6px;">
+                    <i data-lucide="check" style="width: 16px; height: 16px;"></i> დადასტურება
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Notifications Modal -->
+    <div id="notifications-modal" class="modal-overlay hidden" style="z-index: 2000;">
+        <div class="modal-card" style="max-width: 500px; width: 90%;">
+            <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 15px;">
+                <h2>შეტყობინებები</h2>
+                <div style="display: flex; gap: 10px; align-items: center;">
+                    <button id="btn-clear-notifications" class="btn" style="background: rgba(239, 68, 68, 0.15); color: var(--danger-red); border: 1px solid rgba(239, 68, 68, 0.2); padding: 6px 12px; border-radius: 4px; font-size: 0.75rem; cursor: pointer; font-weight: 600;">გასუფთავება</button>
+                    <button id="notifications-close-btn" class="modal-close">&times;</button>
+                </div>
+            </div>
+            <div class="modal-body" style="padding-top: 15px;">
+                <button id="btn-enable-notifications" class="btn btn-block" style="background: rgba(255, 255, 255, 0.05); border: 1px solid var(--border-color); color: #fff; font-size: 0.8rem; padding: 10px; border-radius: 6px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 15px; transition: all var(--transition-speed); font-weight: 600;">
+                    🔔 შეტყობინებების ჩართვა
+                </button>
+                <div id="notification-list" style="max-height: 400px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px;">
+                    <!-- Notifications loaded dynamically -->
+                    <div class="notification-empty" style="text-align: center; color: var(--text-secondary); padding: 40px 0; font-size: 0.9rem;">შეტყობინებები არ არის</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Initialize Lucide icons -->
+    <script>
+        lucide.createIcons();
+    </script>
+    <!-- Firebase Compat SDKs to support direct file:/// launching without CORS errors -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-messaging-compat.js"></script>
+    <!-- Direct inline accordion and payment handlers for guaranteed responsiveness -->
+    <script>
+        function toggleObligationsAccordion() {
+            var bodyEl = document.getElementById("obligations-body");
+            var btnEl = document.getElementById("obligations-toggle-btn");
+            if (!bodyEl) return;
+            var isHidden = bodyEl.classList.contains("hidden");
+            if (isHidden) {
+                bodyEl.classList.remove("hidden");
+                if (btnEl) btnEl.classList.add("open");
+                if (typeof renderObligationsDashboard === "function") {
+                    renderObligationsDashboard();
+                }
+            } else {
+                bodyEl.classList.add("hidden");
+                if (btnEl) btnEl.classList.remove("open");
+            }
+        }
+
+        window.openPayObligationModalByIndex = async function(index) {
+            if (!window.currentObligationsList || !window.currentObligationsList[index]) {
+                alert("ხარჯის მონაცემები იტვირთება, გთხოვთ სცადოთ 1 წამში...");
+                return;
+            }
+            var ob = window.currentObligationsList[index];
+
+            var confirmed = window.confirm("ნამდვილად გსურთ \"" + ob.name + "\"-ს (₾" + Number(ob.amount).toFixed(2) + ") ჩამოჭრა მიმდინარე თვის ბიუჯეტიდან?\nთანხა მომენტალურად შევა გასავლებში.");
+            if (!confirmed) return;
+
+            try {
+                var now = Date.now();
+                var user = (typeof currentUserDisplayName !== "undefined" && currentUserDisplayName) ? currentUserDisplayName : "სტუმარი";
+                
+                // Add expense to Firestore
+                await firebase.firestore().collection("transactions").add({
+                    amount: parseFloat(ob.amount),
+                    type: "expense",
+                    category: "სავალდებულო ხარჯი",
+                    description: ob.name,
+                    date: now,
+                    createdBy: user,
+                    createdAt: now,
+                    isMandatory: true
+                });
+
+                if (typeof addActivityNotification === "function") {
+                    addActivityNotification("add", {
+                        amount: parseFloat(ob.amount),
+                        type: "expense",
+                        category: "სავალდებულო ხარჯი",
+                        description: ob.name
+                    });
+                }
+
+                alert("ხარჯი \"" + ob.name + "\" (₾" + ob.amount + ") წარმატებით ჩამოიჭრა და დაემატა მიმდინარე თვის გასავლებს!");
+            } catch (err) {
+                console.error("Error paying obligation:", err);
+                alert("შეცდომა ხარჯის ჩამოჭრისას: " + err.message);
+            }
+        };
+
+        window.payObligationDirect = window.openPayObligationModalByIndex;
+    </script>
+    <script src="app.js?v=4.0"></script>
+</body>
+</html>
+
