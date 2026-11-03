@@ -15,7 +15,7 @@
     <script src="https://unpkg.com/lucide@latest"></script>
     <!-- OneSignal Web Push SDK v16 -->
     <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
-    <link rel="stylesheet" href="style.css?v=2.2">
+    <link rel="stylesheet" href="style.css?v=2.3">
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#6c63ff">
     <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
@@ -295,15 +295,10 @@
                             <h3 id="month-progress-title">თვის ფინანსური პროგრესი</h3>
                             <span id="month-progress-period"></span>
                         </div>
-                        <div class="month-progress-metrics">
-                            <div><span>ყოველთვიური ხარჯი</span><strong id="month-progress-target">₾0.00</strong></div>
-                            <div><span>უკვე დაფარულია</span><strong id="month-progress-covered">₾0.00</strong></div>
-                            <div><span>დასაფარია</span><strong id="month-progress-remaining">₾0.00</strong></div>
+                        <div class="month-flow-chart">
+                            <canvas id="month-flow-chart" role="img" aria-label="მიმდინარე თვის დღიური შემოსავლებისა და გასავლების დიაგრამა"></canvas>
                         </div>
-                        <div class="month-progress-label"><span>შემოსავლით დაფარვა</span><strong id="month-progress-percent">0%</strong></div>
-                        <div id="month-progress-track" class="month-progress-track" role="progressbar" aria-labelledby="month-progress-title" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div id="month-progress-fill"></div></div>
-                        <p id="month-progress-status" class="month-progress-status" role="status" aria-live="polite"></p>
-                        <p class="month-progress-note">დაფარვა ითვლება მიმდინარე თვის შემოსავლით. დამატებითი ხარჯები აკლდება მოგებას.</p>
+                        <p id="month-flow-note" class="month-progress-note" role="status">მიმდინარე თვის შემოსავლები და გასავლები დღეების მიხედვით.</p>
                     </div>
                 </section>
             </div>
@@ -876,7 +871,7 @@
             if (isHidden && typeof renderObligationsDashboard === "function") renderObligationsDashboard();
         };
     </script>
-    <script src="app.js?v=5.2"></script>
+    <script src="app.js?v=5.3"></script>
 </body>
 </html>
 

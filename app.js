@@ -73,6 +73,7 @@ let currentCalendarDate = new Date();
 let selectedCalendarDate = new Date();
 let activeAnalyticsFilter = "day"; // "day", "week", "month", "year"
 let analyticsTrendChartInstance = null;
+let monthlyFlowChartInstance = null;
 
 // Categories configuration
 const categories = {
@@ -1534,28 +1535,61 @@ function calculateMonthProgress(transactions, obligations, now = new Date()) {
         profit: Math.max(0, income - target - extraExpense) };
 }
 
+function buildMonthFlow(transactions, now = new Date()) {
+    const days = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+    const income = Array(days).fill(0);
+    const expense = Array(days).fill(0);
+    transactions.forEach(tx => {
+        const date = new Date(tx.date);
+        if (date.getFullYear() !== now.getFullYear() || date.getMonth() !== now.getMonth()) return;
+        const amount = Number(tx.amount);
+        if (!Number.isFinite(amount) || amount <= 0) return;
+        if (tx.type === "income") income[date.getDate() - 1] += amount;
+        if (tx.type === "expense") expense[date.getDate() - 1] += amount;
+    });
+    return { labels: Array.from({length: days}, (_, i) => String(i + 1)), income, expense };
+}
+
 function renderCharts() {
-    const targetEl = document.getElementById("month-progress-target");
-    if (!targetEl) return;
+    const canvas = document.getElementById("month-flow-chart");
+    if (!canvas) return;
     const now = new Date();
-    const progress = calculateMonthProgress(transactionsList, studioObligations, now);
-    const money = value => `₾${value.toLocaleString('ka-GE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-    targetEl.textContent = money(progress.target);
-    document.getElementById("month-progress-period").textContent = now.toLocaleDateString('ka-GE', { year: 'numeric', month: 'long' });
-    document.getElementById("month-progress-covered").textContent = money(progress.covered);
-    document.getElementById("month-progress-remaining").textContent = money(progress.remaining);
-    document.getElementById("month-progress-percent").textContent = `${Math.floor(progress.percent)}%`;
-    document.getElementById("month-progress-fill").style.width = `${progress.percent}%`;
-    const track = document.getElementById("month-progress-track");
-    track.setAttribute("aria-valuenow", String(progress.percent));
-    track.setAttribute("aria-valuetext", `${money(progress.covered)} / ${money(progress.target)}`);
-    const status = document.getElementById("month-progress-status");
-    const complete = progress.target > 0 && progress.remaining === 0;
-    status.classList.toggle("complete", complete);
-    status.textContent = now.getDate() < 2 ? "თვის ვალდებულებების დათვლა დაიწყება 2 რიცხვში." :
-        progress.target === 0 ? "ყოველთვიური ხარჯები ჯერ არ არის მითითებული პარამეტრებში." :
-        complete ? `თვის ხარჯები დაფარულია — მოგება ${money(progress.profit)}` :
-        `მოგებაზე გასასვლელად დასაფარია ${money(progress.remaining)}.`;
+    const flow = buildMonthFlow(transactionsList, now);
+    const period = now.toLocaleDateString('ka-GE', { year: 'numeric', month: 'long' });
+    document.getElementById("month-progress-period").textContent = period;
+    document.getElementById("month-flow-note").textContent = flow.income.some(Boolean) || flow.expense.some(Boolean)
+        ? "დღეების მიხედვით აღრიცხული თანხები (₾) — მწვანე: შემოსავალი, წითელი: გასავალი."
+        : "ამ თვეში ტრანზაქციები ჯერ არ არის — ხაზები ნულზეა.";
+    canvas.setAttribute("aria-label", `${period}: შემოსავალი ₾${flow.income.reduce((a,b)=>a+b,0).toFixed(2)}, გასავალი ₾${flow.expense.reduce((a,b)=>a+b,0).toFixed(2)}. დღეების მიხედვით.`);
+    if (monthlyFlowChartInstance) {
+        monthlyFlowChartInstance.data.labels = flow.labels;
+        monthlyFlowChartInstance.data.datasets[0].data = flow.income;
+        monthlyFlowChartInstance.data.datasets[1].data = flow.expense;
+        monthlyFlowChartInstance.update('none');
+        return;
+    }
+    monthlyFlowChartInstance = new Chart(canvas.getContext('2d'), {
+        type: 'line',
+        data: { labels: flow.labels, datasets: [
+            { label: 'შემოსავალი', data: flow.income, borderColor: '#10b981', backgroundColor: 'rgba(16,185,129,.08)', pointBackgroundColor: '#10b981' },
+            { label: 'გასავალი', data: flow.expense, borderColor: '#ef4444', backgroundColor: 'rgba(239,68,68,.06)', pointBackgroundColor: '#ef4444' }
+        ].map(dataset => ({ ...dataset, borderWidth: 2, pointRadius: 2, pointHoverRadius: 5, pointHitRadius: 14, fill: false, tension: 0 })) },
+        options: {
+            responsive: true, maintainAspectRatio: false, animation: false,
+            interaction: { mode: 'index', intersect: false },
+            plugins: {
+                legend: { position: 'top', labels: { color: '#c4c5cc', usePointStyle: true, padding: 16 } },
+                tooltip: { callbacks: {
+                    title: items => `${items[0].label} — ${period}`,
+                    label: item => `${item.dataset.label}: ₾${Number(item.parsed.y).toFixed(2)}`
+                } }
+            },
+            scales: {
+                x: { grid: { color: 'rgba(255,255,255,.04)' }, ticks: { color: '#a1a1aa', maxTicksLimit: 8, maxRotation: 0 }, title: { display: true, text: 'თვის დღე', color: '#a1a1aa' } },
+                y: { beginAtZero: true, grid: { color: 'rgba(255,255,255,.06)' }, ticks: { color: '#a1a1aa', maxTicksLimit: 5 }, title: { display: true, text: 'თანხა (₾)', color: '#a1a1aa' } }
+            }
+        }
+    });
 }
 
 // ==========================================================================
