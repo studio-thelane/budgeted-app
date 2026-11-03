@@ -1787,6 +1787,7 @@ function renderObligationsDashboard() {
     const obDetails = studioObligations.map(ob => {
         totalObligationsAmount += ob.amount;
         
+        const legacyNameKey = ob.name.trim().toLowerCase().replace(/\s+/g, "-");
         const monthKey = `${currentYear}-${String(currentMonth + 1).padStart(2, "0")}`;
         const matchingTx = currentMonthExpenses.find(t => t.isMandatory === true && (
             (ob.id && t.obligationId === ob.id) ||

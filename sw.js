@@ -1,4 +1,4 @@
-const CACHE_NAME = 'budgeted-ganaxlebuli-v4';
+const CACHE_NAME = 'budgeted-ganaxlebuli-v5';
 
 importScripts('https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js');
 importScripts('https://www.gstatic.com/firebasejs/10.8.0/firebase-messaging-compat.js');
